@@ -1,0 +1,5 @@
+the package of charactertrain contains the train code
+	python train_lm_nopad.py --config ../config/train.config
+
+the package of charactertest contains the test code
+	python getProbs.py --config ../config/test.config

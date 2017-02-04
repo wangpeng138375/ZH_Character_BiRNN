@@ -1,0 +1,6 @@
+model_checkpoint_path: "ptb_word_small_sentence.final"
+all_model_checkpoint_paths: "model.ckpt-222"
+all_model_checkpoint_paths: "model.ckpt-444"
+all_model_checkpoint_paths: "model.ckpt-666"
+all_model_checkpoint_paths: "model.ckpt-888"
+all_model_checkpoint_paths: "ptb_word_small_sentence.final"
