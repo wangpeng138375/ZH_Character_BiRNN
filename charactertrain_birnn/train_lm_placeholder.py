@@ -11,7 +11,7 @@ Created on Feb 7, 2017
 
 Trains the model described in:
 (Zaremba, et. al.) Recurrent Neural Network Regularization
-http://arxiv.org/abs/1409.2329
+http://arxiv.org/abs/1409.2329 name, out_type
 
 There are 3 supported model configurations:
 ===========================================
@@ -58,8 +58,8 @@ import utils.configuration as configuration
 import utils.writer 
 
 staticconfig={
-        "batch_size":2,
-        "vocab_size":100,
+        "batch_size":7,
+        "vocab_size":12,
         "embedding_size":10,
         "dropout":1,
         "num_layers":2,
@@ -70,7 +70,7 @@ staticconfig={
         "layer":"LSTM",
         "learning_rate":1,
         "max_epoch":4,
-        "max_max_epoch":3,
+        "max_max_epoch":10,
         "init_scale":0.1,
         "max_grad_norm":5,
         "lr_decay":0.5,
@@ -82,11 +82,19 @@ staticconfig={
 
 def data_type():
     return tf.float32
-
+# can't calculate the 3-dim because of the embedding dimision is not zeros
+# def length(sequence):
+#     mabs=tf.abs(sequence)
+#     print mabs
+#     used = tf.sign(tf.reduce_max(tf.abs(sequence), reduction_indices=2))
+#     print used ,"=== used"
+#     length = tf.reduce_sum(used, reduction_indices=1)
+#     length = tf.cast(length, tf.int32)
+#     return length
 def length(sequence):
     mabs=tf.abs(sequence)
     print mabs
-    used = tf.sign(tf.reduce_max(tf.abs(sequence), reduction_indices=2))
+    used = tf.sign(tf.abs(sequence))
     print used ,"=== used"
     length = tf.reduce_sum(used, reduction_indices=1)
     length = tf.cast(length, tf.int32)
@@ -104,6 +112,8 @@ class BiRNNLM(object):
 
         size = config['embedding_size']
         vocab_size = config['vocab_size']
+        self.seqlen=length(self.inputX)
+        print (self.seqlen)
         
         # Slightly better results can be obtained with forget gate biases
         # initialized to 1 but the hyperparameters of the model would need to be
@@ -123,7 +133,9 @@ class BiRNNLM(object):
                 "embedding", [vocab_size, size], dtype=data_type())
             inputs = tf.nn.embedding_lookup(embedding, self.inputX)
             print (inputs.name,"===============================22222222")
-        seqlen=length(inputs)
+        
+
+        
         
         if is_training and config['dropout'] < 1:
             inputs = tf.nn.dropout(inputs, config['dropout'])
@@ -135,15 +147,20 @@ class BiRNNLM(object):
         # The alternative version of the code below is:
         #
         print( inputs)
-        print (seqlen,"sssssssssssssssssssssssss")
+        print (self.seqlen,"sssssssssssssssssssssssss")
         outputs, (state_fw,state_bw) = tf.nn.bidirectional_dynamic_rnn(fw_cell, bw_cell, inputs, 
                                                                      initial_state_fw=self.fw_initial_state, initial_state_bw=self.bw_initial_state,
-                                                                     sequence_length=seqlen)
-        print (outputs)
+                                                                     sequence_length=self.seqlen)
+        print (outputs,"oooooooooooooooooooooooooooooo")
         
         # for every element in output , such as outputs[0] , its shape is [batch_size,hidden_size]
         # so the output is 
+        temp1=tf.concat(1, outputs)
+        print (temp1,"ttttttttttttttttttttttttttttttttttttemp1")
+        temp=tf.concat(2, outputs)
+        print (temp,"ttttttttttttttttttttttttttttttttttttemp")
         output = tf.reshape(tf.concat(1, outputs), [-1, size*2])
+        print (output,"pppppppppppppppppppppppppppppppppppppppppp")
         
         softmax_w = tf.get_variable(
             "softmax_w", [size*2, vocab_size], dtype=data_type())
@@ -152,7 +169,7 @@ class BiRNNLM(object):
         loss = tf.nn.seq2seq.sequence_loss_by_example(
             [logits],
             [tf.reshape(self.inputY, [-1])],
-            [tf.ones([config["batch_size"] * tf.reduce_max(seqlen)], dtype=data_type())])
+            [tf.ones([config["batch_size"] * tf.reduce_max(self.seqlen)], dtype=data_type())])
         self._cost = cost = tf.reduce_sum(loss) / config["batch_size"]
         self._fw_final_state = state_fw
         self._bw_final_state = state_bw
@@ -208,6 +225,9 @@ class BiRNNLM(object):
     @property
     def train_op(self):
         return self._train_op
+#     @property
+#     def seqlen(self):
+#         return self.seqlen
 
 
 
@@ -227,6 +247,13 @@ def run_epoch(session, model, eval_op=None, verbose=False,batch_class=None):
       "cost": model.cost,
       "fw_final_state": model.fw_final_state,
       "bw_final_state": model.bw_final_state,
+      "inputx":model.input_x,
+      "inputy":model.input_y,
+      "seqlen":model.seqlen,
+
+#       "output1":"Train/Model/BiRNN/FW/FW/transpose:0",
+#       "output2":"Train/Model/ReverseSequence:0",
+#       "outputreshape":"Train/Model/Reshape:0"
   }
   if eval_op is not None:
     fetches["eval_op"] = eval_op
@@ -242,7 +269,7 @@ def run_epoch(session, model, eval_op=None, verbose=False,batch_class=None):
 
     feed_dict[model.input_x]=input_x
     feed_dict[model.input_y]=input_y
-    print("============================================")
+    print(input_x,"============================================",input_y)
     
     for i, (c, h) in enumerate(model.fw_initial_state):
       #print("state----------fw",i,c,state_fw[i].c)
@@ -252,9 +279,14 @@ def run_epoch(session, model, eval_op=None, verbose=False,batch_class=None):
       #print("state----------bw",i,c,state_bw[i].c)
       feed_dict[c] = state_bw[i].c
       feed_dict[h] = state_bw[i].h
-    print("============================================")
+    #print("============================================")
 
     vals = session.run(fetches, feed_dict)
+
+    print ("========================> outputx ",vals["inputx"])
+    print ("========================> outputy ",vals["inputy"])
+    print ("========================> seqlen ",vals["seqlen"])
+#     print ("========================> outputreshape ",vals["outputreshape"].shape,vals["outputreshape"])
     #############################################
     
 #     inputs,i1,i2,i3,i4 = session.run(("Train/Model/embedding_lookup:0","Train/Model/Squeeze:0","Train/Model/Squeeze_1:0","Train/Model/Squeeze_2:0","Train/Model/Squeeze_3:0"))
@@ -284,13 +316,15 @@ def run_epoch(session, model, eval_op=None, verbose=False,batch_class=None):
     
     #############################################
     cost = vals["cost"]
-    state_fw = vals["fw_final_state"]
-    state_bw = vals["bw_final_state"]
+    #################### control the switch to next iteration ###############
+    #state_fw = vals["fw_final_state"]
+    #state_bw = vals["bw_final_state"]
 
     costs += cost
     iters += temp_num_step
+    #print (step,batch_class.epoch_size,temp_num_step,verbose,batch_class.epoch_size // 10)
 
-    if verbose and step % (batch_class.epoch_size // 10) == 10:
+    if verbose and step % (batch_class.epoch_size // 10) == 4:
       print("%.3f perplexity: %.3f speed: %.0f wps" % 
             (step * 1.0 / batch_class.epoch_size, np.exp(costs / iters),
              iters * batch_class.batch_size / (time.time() - start_time)))
