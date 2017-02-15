@@ -5,6 +5,7 @@ Created on Feb 7, 2017
 
 @author: wangpeng
 '''
+from debian.debtags import output
 
 
 """
@@ -56,6 +57,7 @@ import tensorflow as tf
 import charactertrain_birnn.reader_placeholder as reader
 import utils.configuration as configuration
 import utils.writer 
+import utils.costom_rnn as constmrnn
 
 staticconfig={
         "batch_size":7,
@@ -79,6 +81,8 @@ staticconfig={
 
     
     }
+mask_voc_embedding=[[0.]*staticconfig["vocab_size"],[1.]*staticconfig["vocab_size"]]
+
 
 def data_type():
     return tf.float32
@@ -98,10 +102,12 @@ def length(sequence):
     print used ,"=== used"
     length = tf.reduce_sum(used, reduction_indices=1)
     length = tf.cast(length, tf.int32)
-    return length
+    return length-1#这里减去1，可以直接把brnn中的最后一个<s>或者</s>去掉
 
 class BiRNNLM(object):
     def __init__(self, is_training,config):# configuration in train,valid , and test is different
+        
+        mask_voc_embedd=tf.convert_to_tensor(mask_voc_embedding,dtype=tf.float32)
         
         with tf.name_scope("InputData"):
             self.inputX = tf.placeholder(tf.int32, [config["batch_size"], None]) # [batch_size, num_steps]
@@ -112,7 +118,7 @@ class BiRNNLM(object):
 
         size = config['embedding_size']
         vocab_size = config['vocab_size']
-        self.seqlen=length(self.inputX)
+        self.seqlen=length(self.inputY)
         print (self.seqlen)
         
         # Slightly better results can be obtained with forget gate biases
@@ -131,14 +137,17 @@ class BiRNNLM(object):
         with tf.device("/cpu:0"):
             embedding = tf.get_variable(
                 "embedding", [vocab_size, size], dtype=data_type())
-            inputs = tf.nn.embedding_lookup(embedding, self.inputX)
-            print (inputs.name,"===============================22222222")
+            input_emb_x = tf.nn.embedding_lookup(embedding, self.inputX)
+            input_emb_y = tf.nn.embedding_lookup(embedding, self.inputY)
+            print (input_emb_x.name,"===============================input_emb_x")
+            print (input_emb_y.name,"===============================input_emb_y")
         
 
         
         
         if is_training and config['dropout'] < 1:
-            inputs = tf.nn.dropout(inputs, config['dropout'])
+            input_emb_x = tf.nn.dropout(input_emb_x, config['dropout'])
+            input_emb_y = tf.nn.dropout(input_emb_y, config['dropout'])
         
         # Simplified version of tensorflow.models.rnn.rnn.py's rnn().
         # This builds an unrolled LSTM for tutorial purposes only.
@@ -146,11 +155,16 @@ class BiRNNLM(object):
         #
         # The alternative version of the code below is:
         #
-        print( inputs)
         print (self.seqlen,"sssssssssssssssssssssssss")
-        outputs, (state_fw,state_bw) = tf.nn.bidirectional_dynamic_rnn(fw_cell, bw_cell, inputs, 
+        outputs, (state_fw,state_bw) = constmrnn.bidirectional_dynamic_rnn(fw_cell, bw_cell, input_emb_x, input_emb_y,
                                                                      initial_state_fw=self.fw_initial_state, initial_state_bw=self.bw_initial_state,
                                                                      sequence_length=self.seqlen)
+        generating_mask = tf.sign(tf.reduce_max(tf.abs(outputs[0]), reduction_indices=2))
+        
+        generated_mask_y=tf.cast(generating_mask, tf.int32)
+        generating_mask=tf.reshape(generated_mask_y,[ -1])
+        print (generating_mask,",,,,,,,,,,,,,,,,",outputs[0])
+        generated_mask=tf.nn.embedding_lookup(mask_voc_embedd, generating_mask)
         print (outputs,"oooooooooooooooooooooooooooooo")
         
         # for every element in output , such as outputs[0] , its shape is [batch_size,hidden_size]
@@ -166,10 +180,17 @@ class BiRNNLM(object):
             "softmax_w", [size*2, vocab_size], dtype=data_type())
         softmax_b = tf.get_variable("softmax_b", [vocab_size], dtype=data_type())
         logits = tf.matmul(output, softmax_w) + softmax_b
+        print(logits,"llllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllll")
+        logits*=generated_mask
+        print(logits,"llllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllll")
+        #mask = tf.sign(tf.reduce_max(tf.abs(output), reduction_indices=2))
+        #self.inputY_sliced=tf.slice(self.inputY, [0,0], size, name),
+        label=self.inputY*generated_mask_y
+        print (label,"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaabel")
         loss = tf.nn.seq2seq.sequence_loss_by_example(
             [logits],
-            [tf.reshape(self.inputY, [-1])],
-            [tf.ones([config["batch_size"] * tf.reduce_max(self.seqlen)], dtype=data_type())])
+            [tf.reshape(label, [-1])],
+            [tf.ones([config["batch_size"] * tf.reduce_max(self.seqlen+1)], dtype=data_type())])
         self._cost = cost = tf.reduce_sum(loss) / config["batch_size"]
         self._fw_final_state = state_fw
         self._bw_final_state = state_bw
@@ -251,9 +272,12 @@ def run_epoch(session, model, eval_op=None, verbose=False,batch_class=None):
       "inputy":model.input_y,
       "seqlen":model.seqlen,
 
-#       "output1":"Train/Model/BiRNN/FW/FW/transpose:0",
-#       "output2":"Train/Model/ReverseSequence:0",
-#       "outputreshape":"Train/Model/Reshape:0"
+#         "output1":"Train/Model/BiRNN/FW/FW/transpose:0",
+#         "output2":"Train/Model/ReverseSequence:0",
+#         "logits":"Train/Model/mul:0",
+#         "mask":"Train/Model/Reshape:0",
+#         "label":"Train/Model/mul_1:0",
+
   }
   if eval_op is not None:
     fetches["eval_op"] = eval_op
@@ -264,12 +288,11 @@ def run_epoch(session, model, eval_op=None, verbose=False,batch_class=None):
 #     print(input_x,"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx")
 #     print (input_y,"yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy temp_num_step",temp_num_step)
     feed_dict = {}
-#     feed_dict["Train/Model/InputData/Placeholder:0"]=input_x
-#     feed_dict["Train/Model/InputData/Placeholder_1:0"]=input_y
+
 
     feed_dict[model.input_x]=input_x
     feed_dict[model.input_y]=input_y
-    print(input_x,"============================================",input_y)
+#     print(input_x,"============================================",input_y)
     
     for i, (c, h) in enumerate(model.fw_initial_state):
       #print("state----------fw",i,c,state_fw[i].c)
@@ -283,36 +306,15 @@ def run_epoch(session, model, eval_op=None, verbose=False,batch_class=None):
 
     vals = session.run(fetches, feed_dict)
 
-    print ("========================> outputx ",vals["inputx"])
-    print ("========================> outputy ",vals["inputy"])
-    print ("========================> seqlen ",vals["seqlen"])
-#     print ("========================> outputreshape ",vals["outputreshape"].shape,vals["outputreshape"])
-    #############################################
-    
-#     inputs,i1,i2,i3,i4 = session.run(("Train/Model/embedding_lookup:0","Train/Model/Squeeze:0","Train/Model/Squeeze_1:0","Train/Model/Squeeze_2:0","Train/Model/Squeeze_3:0"))
-#     print (inputs)
-#     print (type(inputs),np.shape(inputs),"=============================================3")
-#     
-# 
-#     print (i1)
-#     print (type(i1),np.shape(i1),"=============================================31")
-# 
-#     print (i2)
-#     print (type(i2),np.shape(i2),"=============================================32")
-#     
-#     print (i3)
-#     print (type(i3),np.shape(i3),"=============================================33")
-#     out0 = session.run("Train/Model/RNN/MultiRNNCell/Cell1/BasicLSTMCell/mul_2:0")
-#     print (out0)
-#     print (type(out0),np.shape(out0),"=============================================4")
-#     
-#     out= session.run("Train/Model/Reshape:0")
-#     print (out)
-#     print (type(out),np.shape(out),"=============================================5")
-#     
-#     cat= session.run("Train/Model/concat:0")
-#     print (cat)
-#     print (type(out),np.shape(cat),"=============================================cat")
+#     print ("========================> inputx ",vals["inputx"].shape,vals["inputx"])
+#     print ("========================> inputy ",vals["inputy"].shape,vals["inputy"])
+#     print ("========================> label ",vals["label"].shape,vals["label"])
+#     print ("========================> seqlen ",vals["seqlen"])
+#     print ("========================> output2 ",vals["output2"].shape,vals["output2"])
+#     print ("========================> logits ",vals["logits"].shape,vals["logits"])
+#     print ("========================> mask ",vals["mask"].shape,vals["mask"])
+
+
     
     #############################################
     cost = vals["cost"]

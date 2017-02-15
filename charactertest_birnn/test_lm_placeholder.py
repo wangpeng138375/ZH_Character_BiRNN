@@ -14,7 +14,34 @@ import tensorflow as tf
 import charactertrain_birnn.reader_placeholder as reader
 import utils.configuration as configuration
 import utils.writer 
+from tensorflow.python.framework.dtypes import qint16
+import utils.costom_rnn as constmrnn
 
+# testconfig={
+#         "batch_size":1,
+#         "vocab_size":5050,
+#         "embedding_size":100,
+#         "dropout":1,
+#         "num_layers":2,
+#         "name":"../modelresult/ptb_word_small_sentence",
+#         "log":"../log/ptb_word_small_sentence.log",
+#         "save_path":"../modelresult",
+#         "data_path":"../data/testfolder",
+#         "layer":"LSTM",
+#         "learning_rate":1,
+#         "max_epoch":4,
+#         "max_max_epoch":3,
+#         "init_scale":0.1,
+#         "max_grad_norm":5,
+#         "lr_decay":0.5,
+#         "forget_bias":0,
+#         "optimizer":"sgd",
+#         "test":1,
+#         "lm":"../modelresult/ptb_word_small_sentence.final",
+#         "result":"../log/out"
+# 
+#     
+#     }
 testconfig={
         "batch_size":1,
         "vocab_size":12,
@@ -40,18 +67,17 @@ testconfig={
 
     
     }
-
 def data_type():
     return tf.float32
 
 def length(sequence):
     mabs=tf.abs(sequence)
     print mabs
-    used = tf.sign(tf.reduce_max(tf.abs(sequence), reduction_indices=2))
+    used = tf.sign(tf.abs(sequence))
     print used ,"=== used"
     length = tf.reduce_sum(used, reduction_indices=1)
     length = tf.cast(length, tf.int32)
-    return length
+    return length-1#这里减去1，可以直接把brnn中的最后一个<s>或者</s>去掉
 
 class BiRNNLM(object):
     def __init__(self, is_training,config):# configuration in train,valid , and test is different
@@ -65,6 +91,8 @@ class BiRNNLM(object):
 
         size = config['embedding_size']
         vocab_size = config['vocab_size']
+        self.seqlen=length(self.inputY)
+        print (self.seqlen,"sssssssssssssssssssssssssssssssssssssssssssseqlen")
         
         # Slightly better results can be obtained with forget gate biases
         # initialized to 1 but the hyperparameters of the model would need to be
@@ -82,22 +110,19 @@ class BiRNNLM(object):
         with tf.device("/cpu:0"):
             embedding = tf.get_variable(
                 "embedding", [vocab_size, size], dtype=data_type())
-            inputs = tf.nn.embedding_lookup(embedding, self.inputX)
-            print (inputs.name,"===============================22222222")
-        seqlen=length(inputs)
-    
-        
+            input_emb_x = tf.nn.embedding_lookup(embedding, self.inputX)
+            input_emb_y = tf.nn.embedding_lookup(embedding, self.inputY)
+
         # Simplified version of tensorflow.models.rnn.rnn.py's rnn().
         # This builds an unrolled LSTM for tutorial purposes only.
         # In general, use the rnn() or state_saving_rnn() from rnn.py.
         #
         # The alternative version of the code below is:
         #
-        print( inputs)
-        print (seqlen,"sssssssssssssssssssssssss")
-        outputs, (state_fw,state_bw) = tf.nn.bidirectional_dynamic_rnn(fw_cell, bw_cell, inputs, 
+
+        outputs, (state_fw,state_bw) = constmrnn.bidirectional_dynamic_rnn(fw_cell, bw_cell, input_emb_x, input_emb_y, 
                                                                      initial_state_fw=self.fw_initial_state, initial_state_bw=self.bw_initial_state,
-                                                                     sequence_length=seqlen)
+                                                                     sequence_length=self.seqlen)
         print (outputs,"oooooooooooooooooooooooooooooo")
         
         # for every element in output , such as outputs[0] , its shape is [batch_size,hidden_size]
@@ -131,7 +156,9 @@ class BiRNNLM(object):
         #    result:    [21 81]
         ##############################################################################
         words_count=tf.range(tf.shape(softmax_output)[0])
-        gather_index=tf.pack([words_count,tf.squeeze(self.inputY)], 1)
+        print(words_count,"wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwords_counts")
+        print(tf.squeeze(self.inputY),"yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy")
+        gather_index=tf.pack([words_count,tf.squeeze(self.inputY,[0])], 1)
         # get probability of target word
         # the gather:
         # temp = [ 1 11 21 31 41 51 61 71 81 91] 
@@ -230,18 +257,15 @@ def getProbability(session,mtest, words,vocabulary,config=None):
     print words_id,"====================words_id"
 
     probResult=getProbability_Sentence(session,mtest,words_id)
-    return probResult[0]
+    return probResult
 
 def getProbability_Sentence(session, model,raw_data1):
     """Runs the model on the given data."""
     
     print (raw_data1,"============================raw_data11111",type(raw_data1[0]))
-#     all_vars = tf.trainable_variables()
-#     for v in all_vars:
-#         print (v.name)
     
     inputlen=len(raw_data1[0])-1
-    print (inputlen,"=======================inputlen")
+    print (inputlen,"=======================rawinputlen")
     # it is useless , just for histroy reason
     num_words = 1
     # state = initial state of the model
@@ -253,32 +277,21 @@ def getProbability_Sentence(session, model,raw_data1):
     fetches = {
         #"cost": model.cost,
         
-        "input_sample": model.input_x,
-        "target_sample": model.input_y,
+        "sample_x": model.input_x,
+        "sample_y": model.input_y,
         "target_prob": model.target_prob,
+        "seqlen":"Test/Model/sub:0",
         "softout":"Test/Model/Softmax:0",
-        #"softreshape":"Test/Model/Shape_1:0"
-
-
-#         "rawsoft": "Test/Model/Softmax:0",
-#         "shapedsoft":"Test/Model/Reshape_1:0",
-#         "gatherpro":"Test/Model/Gather:0"
+        "output1":"Test/Model/BiRNN/FW/FW/transpose:0",
+        "output2":"Test/Model/ReverseSequence:0",
 
     }
 
-    
-
-
-    #print ("step",step)
-    #print(raw_data1)
-    #print(raw_data1[step:step+2])
-    
-    #rawsoft,shapedsoft,gatherpro=session.run(["Test/Model/Softmax:0","Test/Model/Reshape_1:0","Test/Model/Gather:0"])
     np_raw_data=np.asarray(raw_data1)
 
     feed_dict={}
-    print np_raw_data[0:1,0:inputlen]
-    print np_raw_data[0:1,1:inputlen+1],np_raw_data[0:1,1:inputlen+1].shape
+    print "numpy_inputx",np_raw_data[0:1,0:inputlen]
+    print "numpy_inputy",np_raw_data[0:1,1:inputlen+1]
     feed_dict[model.input_x]=np_raw_data[0:1,0:inputlen]
     feed_dict[model.input_y]=np_raw_data[0:1,1:inputlen+1]
 
@@ -293,10 +306,15 @@ def getProbability_Sentence(session, model,raw_data1):
     # feed the data ('feed_dict') to the graph and return everything that is in 'fetches'
     vals = session.run(fetches, feed_dict)
 
-    print "================================================="
-    print vals["softout"],"90909090909090000000000000000000000000000"
-    #print vals["softreshape"]
-    print "++++++++++++========================+++++++++++++"
+    print "s@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@"
+    print "====>   ",vals["softout"],"90909090909090000000000000000000000000000"
+    print "====>   ",vals["sample_x"]
+    print "====>   ",vals["sample_y"]
+    print "====>   ",vals["output1"]
+    print "====>   ",vals["output2"]
+    print "====>   ",vals["seqlen"]
+
+    print "e@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@"
     # debugging: print every sample (input + target) that is fed to the model
 #         if PRINT_SAMPLES:
 #             print_samples(vals['input_sample'], vals['target_sample'], id_to_word)
@@ -346,12 +364,15 @@ def main(_):
 #             print (rs,"=======================================result")
 #             rs=getProbability(session,mtest,"<s> a b d </s>",vocab)
 #             print (rs,"=======================================result")
-            rs=getProbability(session,mtest,"<s> a b c g e f g </s>",vocab)
-            print (rs,"=======================================result")
-            rs=getProbability(session,mtest,"<s> a b c d e f g </s>",vocab)
-            print (rs,"=======================================result")
+
+            rs=getProbability(session,mtest,"<s> a g c e e f g </s>",vocab)
+            print (rs[0],"=======================================result")
+
+            for i in range(rs[1].shape[0]):
+                print (np.max(rs[1][i]),np.where(rs[1][i]==np.max(rs[1][i])))
+
+
 
             
 if __name__ == "__main__":
     tf.app.run()
-

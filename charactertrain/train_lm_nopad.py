@@ -138,6 +138,8 @@ class LM(object):
     #
     inputs = [tf.squeeze(input_step, [1])
               for input_step in tf.split(1, num_steps, inputs)]
+    for input in inputs:
+        print (input.name,"===============================2323232323232323")
     outputs, state_fw,state_bw = tf.nn.bidirectional_rnn(fw_cell, bw_cell, inputs, initial_state_fw=self.fw_initial_state, initial_state_bw=self.bw_initial_state)
     print (outputs)
 #     outputs = []
@@ -249,9 +251,19 @@ def run_epoch(session, model, eval_op=None, verbose=False):
     vals = session.run(fetches, feed_dict)
     #############################################
     
-#     inputs = session.run("Train/Model/embedding_lookup:0")
-#     print (inputs)
-#     print (type(inputs),np.shape(inputs),"=============================================3")
+    inputs,i1,i2,i3,i4 = session.run(("Train/Model/embedding_lookup:0","Train/Model/Squeeze:0","Train/Model/Squeeze_1:0","Train/Model/Squeeze_2:0","Train/Model/Squeeze_3:0"))
+    print (inputs)
+    print (type(inputs),np.shape(inputs),"=============================================3")
+    
+
+    print (i1)
+    print (type(i1),np.shape(i1),"=============================================31")
+
+    print (i2)
+    print (type(i2),np.shape(i2),"=============================================32")
+    
+    print (i3)
+    print (type(i3),np.shape(i3),"=============================================33")
 #     out0 = session.run("Train/Model/RNN/MultiRNNCell/Cell1/BasicLSTMCell/mul_2:0")
 #     print (out0)
 #     print (type(out0),np.shape(out0),"=============================================4")
