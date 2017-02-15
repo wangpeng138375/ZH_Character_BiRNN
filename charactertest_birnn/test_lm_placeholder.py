@@ -108,10 +108,12 @@ class BiRNNLM(object):
         self._bw_initial_state = bw_cell.zero_state(config["batch_size"], data_type())
         
         with tf.device("/cpu:0"):
-            embedding = tf.get_variable(
-                "embedding", [vocab_size, size], dtype=data_type())
-            input_emb_x = tf.nn.embedding_lookup(embedding, self.inputX)
-            input_emb_y = tf.nn.embedding_lookup(embedding, self.inputY)
+            embedding_fw = tf.get_variable(
+                "embedding_fw", [vocab_size, size], dtype=data_type())
+            embedding_bw = tf.get_variable(
+                "embedding_bw", [vocab_size, size], dtype=data_type())
+            input_emb_x = tf.nn.embedding_lookup(embedding_fw, self.inputX)
+            input_emb_y = tf.nn.embedding_lookup(embedding_bw, self.inputY)
 
         # Simplified version of tensorflow.models.rnn.rnn.py's rnn().
         # This builds an unrolled LSTM for tutorial purposes only.
@@ -336,6 +338,7 @@ def main(_):
 
     vocab=load_vocab(testconfig)
     print (vocab,"====================////////////////////////")
+    id2word=vocab[1]
 
     with tf.Graph().as_default():  
         with tf.name_scope("Test"):
@@ -365,11 +368,12 @@ def main(_):
 #             rs=getProbability(session,mtest,"<s> a b d </s>",vocab)
 #             print (rs,"=======================================result")
 
-            rs=getProbability(session,mtest,"<s> a g c e e f g </s>",vocab)
+            rs=getProbability(session,mtest,"<s> a b c d e f g </s>",vocab)
             print (rs[0],"=======================================result")
 
             for i in range(rs[1].shape[0]):
-                print (np.max(rs[1][i]),np.where(rs[1][i]==np.max(rs[1][i])))
+                print (np.max(rs[1][i]),np.where(rs[1][i]==np.max(rs[1][i])),id2word[np.where(rs[1][i]==np.max(rs[1][i]))[0][0]])
+
 
 
 

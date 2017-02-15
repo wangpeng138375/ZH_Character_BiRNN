@@ -135,10 +135,12 @@ class BiRNNLM(object):
         self._bw_initial_state = bw_cell.zero_state(config["batch_size"], data_type())
         
         with tf.device("/cpu:0"):
-            embedding = tf.get_variable(
-                "embedding", [vocab_size, size], dtype=data_type())
-            input_emb_x = tf.nn.embedding_lookup(embedding, self.inputX)
-            input_emb_y = tf.nn.embedding_lookup(embedding, self.inputY)
+            embedding_fw = tf.get_variable(
+                "embedding_fw", [vocab_size, size], dtype=data_type())
+            embedding_bw = tf.get_variable(
+                "embedding_bw", [vocab_size, size], dtype=data_type())
+            input_emb_x = tf.nn.embedding_lookup(embedding_fw, self.inputX)
+            input_emb_y = tf.nn.embedding_lookup(embedding_bw, self.inputY)
             print (input_emb_x.name,"===============================input_emb_x")
             print (input_emb_y.name,"===============================input_emb_y")
         
