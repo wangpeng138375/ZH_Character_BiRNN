@@ -3,3 +3,6 @@ the package of charactertrain contains the train code
 
 the package of charactertest contains the test code
 	python getProbs.py --config ../config/test.config
+	
+	
+	模型最后一层，前向和后向的结果相加效果会更好一点

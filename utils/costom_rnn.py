@@ -115,7 +115,7 @@ def bidirectional_dynamic_rnn(cell_fw, cell_bw, inputs_fw,inputs_bw, sequence_le
 
     with vs.variable_scope("BW") as bw_scope:
       inputs_reverse = array_ops.reverse_sequence(
-          input=inputs_bw, seq_lengths=sequence_length,
+          input=inputs_bw, seq_lengths=sequence_length+1,#把</s> 包含进来
           seq_dim=time_dim, batch_dim=batch_dim)
       tmp, output_state_bw = tf.nn.dynamic_rnn(
           cell=cell_bw, inputs=inputs_reverse, sequence_length=sequence_length,

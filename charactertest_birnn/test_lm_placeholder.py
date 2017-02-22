@@ -17,35 +17,10 @@ import utils.writer
 from tensorflow.python.framework.dtypes import qint16
 import utils.costom_rnn as constmrnn
 
-# testconfig={
-#         "batch_size":1,
-#         "vocab_size":5050,
-#         "embedding_size":100,
-#         "dropout":1,
-#         "num_layers":2,
-#         "name":"../modelresult/ptb_word_small_sentence",
-#         "log":"../log/ptb_word_small_sentence.log",
-#         "save_path":"../modelresult",
-#         "data_path":"../data/testfolder",
-#         "layer":"LSTM",
-#         "learning_rate":1,
-#         "max_epoch":4,
-#         "max_max_epoch":3,
-#         "init_scale":0.1,
-#         "max_grad_norm":5,
-#         "lr_decay":0.5,
-#         "forget_bias":0,
-#         "optimizer":"sgd",
-#         "test":1,
-#         "lm":"../modelresult/ptb_word_small_sentence.final",
-#         "result":"../log/out"
-# 
-#     
-#     }
 testconfig={
         "batch_size":1,
-        "vocab_size":12,
-        "embedding_size":10,
+        "vocab_size":2050,
+        "embedding_size":100,
         "dropout":1,
         "num_layers":2,
         "name":"../modelresult/ptb_word_small_sentence",
@@ -64,9 +39,34 @@ testconfig={
         "test":1,
         "lm":"../modelresult/ptb_word_small_sentence.final",
         "result":"../log/out"
-
-    
+  
+      
     }
+# testconfig={
+#         "batch_size":1,
+#         "vocab_size":12,
+#         "embedding_size":10,
+#         "dropout":1,
+#         "num_layers":2,
+#         "name":"../modelresult/ptb_word_small_sentence",
+#         "log":"../log/ptb_word_small_sentence.log",
+#         "save_path":"../modelresult",
+#         "data_path":"../data/testfolder",
+#         "layer":"LSTM",
+#         "learning_rate":1,
+#         "max_epoch":4,
+#         "max_max_epoch":3,
+#         "init_scale":0.1,
+#         "max_grad_norm":5,
+#         "lr_decay":0.5,
+#         "forget_bias":0,
+#         "optimizer":"sgd",
+#         "test":1,
+#         "lm":"../modelresult/ptb_word_small_sentence.final",
+#         "result":"../log/out"
+#  
+#      
+#     }
 def data_type():
     return tf.float32
 
@@ -368,11 +368,12 @@ def main(_):
 #             rs=getProbability(session,mtest,"<s> a b d </s>",vocab)
 #             print (rs,"=======================================result")
 
-            rs=getProbability(session,mtest,"<s> a b c d e f g </s>",vocab)
+            rs=getProbability(session,mtest,"<s> 我 可 好 告 诉 您 </s>",vocab)
             print (rs[0],"=======================================result")
 
             for i in range(rs[1].shape[0]):
                 print (np.max(rs[1][i]),np.where(rs[1][i]==np.max(rs[1][i])),id2word[np.where(rs[1][i]==np.max(rs[1][i]))[0][0]])
+                print (id2word[np.where(rs[1][i]==np.max(rs[1][i]))[0][0]].decode("utf8"))
 
 
 

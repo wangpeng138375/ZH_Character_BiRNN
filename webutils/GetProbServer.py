@@ -13,24 +13,26 @@ import numpy as np
 import tensorflow as tf
 import utils.configuration as configuration
 import utils.writer as writer
-import charactertest.getProbs_noconfig as gp
+import charactertest_birnn_softlayer_add.test_lm_placeholder_sa as gp
 import json
 import traceback  
 
 
-urls = ("/getprob", "Recommander_GetProb",)
-print sys.argv[2]
-eval_config = configuration.get_config(sys.argv[2])
+urls = ("/getprob", "Recommander_GetProb","/getallprob", "Recommander_GetAllProb",)
 
-vocab=gp.load_vocab(eval_config)
+#eval_config = configuration.get_config(sys.argv[2])
+
+
+#vocab=gp.load_vocab(eval_config)
+vocab=gp.load_vocab(gp.testconfig)
 
 with tf.Graph().as_default():  
         with tf.name_scope("Test"):
             with tf.variable_scope("Model", reuse=None):
-                mtest = gp.LM(config=eval_config)
+                mtest = gp.BiRNNLM(is_training=False,config=gp.testconfig)
         saver = tf.train.Saver()
         session=tf.Session()
-saver.restore(session, eval_config['lm'])
+saver.restore(session, gp.testconfig['lm'])
 
 class MyEncoder(json.JSONEncoder):
     def default(self, obj):
@@ -54,14 +56,33 @@ class Recommander_GetProb:
             rs=gp.getProbability(session,mtest,sentence.get("data").encode("utf8"),vocab)
             #rs=rs.tolist()
             #print rs,type(rs),type(rs[0]),"dddddddddddddddd",json.dumps(rs,cls=MyEncoder)
-            return {"status": "true","prob":json.dumps(rs,cls=MyEncoder)}
+            return {"status": "true","prob":json.dumps(rs[0],cls=MyEncoder)}
         except:
             traceback.print_exc()
             return {"status": "false"}
 
     def POST(self):
         print "POST Method"
+        
+        
+class Recommander_GetAllProb:
+    def __init__(self):
+        pass
 
+    def GET(self):
+        try:
+            sentence=web.input()
+            #print "sentence :",sentence,sentence.get("data")
+            rs=gp.getProbability(session,mtest,sentence.get("data").encode("utf8"),vocab)
+            #rs=rs.tolist()
+            #print rs,type(rs),type(rs[0]),"dddddddddddddddd",json.dumps(rs,cls=MyEncoder)
+            return {"status": "true","prob":json.dumps(rs[1],cls=MyEncoder)}
+        except:
+            traceback.print_exc()
+            return {"status": "false"}
+
+    def POST(self):
+        print "POST Method"
 
 if __name__ == '__main__':
 
