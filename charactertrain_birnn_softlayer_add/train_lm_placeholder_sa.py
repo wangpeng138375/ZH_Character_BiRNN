@@ -396,7 +396,7 @@ def main(_):
                 train_perplexity = run_epoch(session, mtrain, eval_op=mtrain.train_op,
                                              verbose=True,batch_class=train_batches)
                 print("Epoch: %d Train Perplexity: %.3f" % (i + 1, train_perplexity))
-                valid_perplexity = run_epoch(session, mvalid,batch_class=train_batches)
+                valid_perplexity = run_epoch(session, mvalid,batch_class=valid_batches)
                 print("Epoch: %d Valid Perplexity: %.3f" % (i + 1, valid_perplexity))
             
             test_perplexity = run_epoch(session, mtest,batch_class=test_batches)
