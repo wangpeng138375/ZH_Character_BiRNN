@@ -287,7 +287,7 @@ def run_epoch(session, model, eval_op=None, verbose=False,batch_class=None):
 
   for step in range(batch_class.epoch_size):
     input_x,input_y=batch_class.next_batch()
-    temp_num_step=len(input_x[0])
+    #temp_num_step=len(input_x[0])
 #     print(input_x,"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx")
 #     print (input_y,"yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy temp_num_step",temp_num_step)
     feed_dict = {}
@@ -326,6 +326,7 @@ def run_epoch(session, model, eval_op=None, verbose=False,batch_class=None):
     #state_bw = vals["bw_final_state"]
 
     costs += cost
+    temp_num_step=float(sum(vals["seqlen"]))/len(vals["seqlen"])
     iters += temp_num_step
     #print (step,batch_class.epoch_size,temp_num_step,verbose,batch_class.epoch_size // 10)
 
@@ -396,7 +397,7 @@ def main(_):
                 train_perplexity = run_epoch(session, mtrain, eval_op=mtrain.train_op,
                                              verbose=True,batch_class=train_batches)
                 print("Epoch: %d Train Perplexity: %.3f" % (i + 1, train_perplexity))
-                valid_perplexity = run_epoch(session, mvalid,batch_class=train_batches)
+                valid_perplexity = run_epoch(session, mvalid,batch_class=valid_batches)
                 print("Epoch: %d Valid Perplexity: %.3f" % (i + 1, valid_perplexity))
             
             test_perplexity = run_epoch(session, mtest,batch_class=test_batches)
