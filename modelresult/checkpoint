@@ -1,2 +1,0 @@
-model_checkpoint_path: "ptb_word_small_sentence.final"
-all_model_checkpoint_paths: "ptb_word_small_sentence.final"

@@ -165,6 +165,7 @@ class BiRNNLM(object):
         
         generated_mask_y=tf.cast(generating_mask, tf.int32)
         generating_mask=tf.reshape(generated_mask_y,[ -1])
+        logist_weight=tf.cast(generating_mask, dtype=data_type())
         print (generating_mask,",,,,,,,,,,,,,,,,",outputs[0])
         generated_mask=tf.nn.embedding_lookup(mask_voc_embedd, generating_mask)
         print (outputs,"oooooooooooooooooooooooooooooo")
@@ -190,10 +191,14 @@ class BiRNNLM(object):
         #self.inputY_sliced=tf.slice(self.inputY, [0,0], size, name),
         label=self.inputY*generated_mask_y
         print (label,"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaabel")
+#         loss = tf.nn.seq2seq.sequence_loss_by_example(
+#             [logits],
+#             [tf.reshape(label, [-1])],
+#             [tf.ones([config["batch_size"] * tf.reduce_max(self.seqlen+1)], dtype=data_type())])
         loss = tf.nn.seq2seq.sequence_loss_by_example(
-            [logits],
-            [tf.reshape(label, [-1])],
-            [tf.ones([config["batch_size"] * tf.reduce_max(self.seqlen+1)], dtype=data_type())])
+                [logits],
+                [tf.reshape(label, [-1])],
+                [logist_weight])
         self._cost = cost = tf.reduce_sum(loss) / config["batch_size"]
         self._fw_final_state = state_fw
         self._bw_final_state = state_bw
@@ -327,6 +332,7 @@ def run_epoch(session, model, eval_op=None, verbose=False,batch_class=None):
 
     costs += cost
     temp_num_step=float(sum(vals["seqlen"]))/len(vals["seqlen"])
+    print vals["seqlen"],len(input_x[0]),temp_num_step
     iters += temp_num_step
     #print (step,batch_class.epoch_size,temp_num_step,verbose,batch_class.epoch_size // 10)
 
